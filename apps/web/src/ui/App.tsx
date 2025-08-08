@@ -1,15 +1,17 @@
-import React, { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import React, { useEffect, useMemo, useState, useCallback, type FormEvent } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import './x.css'
+import type { User, Post, LoginResponse } from './types'
+import { LeftNav } from './components/LeftNav'
+import { Composer } from './components/Composer'
+import { TweetsList } from './components/TweetsList'
+import { LoginCard } from './components/LoginCard'
+import { CreateUserCard } from './components/CreateUserCard'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3000'
 
-type User = { id: number; name: string; email: string }
-type Post = { id: number; userId: number; message: string; count?: number }
-
-type LoginResponse = { token: string; user: User }
-
 export function App() {
+  // ----- States -----
   const [users, setUsers] = useState<User[]>([])
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -21,31 +23,32 @@ export function App() {
   const [message, setMessage] = useState('')
   const [posts, setPosts] = useState<Post[]>([])
   const [favPostIds, setFavPostIds] = useState<number[]>([])
-  // ルーティング（React Router）
+
+  // Router
   const { name: routeNameParam } = useParams()
   const routeUserName = routeNameParam ?? null
   const navigate = useNavigate()
 
+  // Derived
   const favSet = useMemo(() => new Set(favPostIds), [favPostIds])
+  const authHeader = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : undefined), [token])
 
-  const setTokenAndPersist = (t: string | null) => {
+  const setTokenAndPersist = useCallback((t: string | null) => {
     setToken(t)
     if (t) localStorage.setItem('token', t)
     else localStorage.removeItem('token')
-  }
+  }, [])
 
-  const authHeader = token ? { Authorization: `Bearer ${token}` } : undefined
-
-  const loadUsers = async () => {
+  // ----- Loaders (memoized) -----
+  const loadUsers = useCallback(async () => {
     const res = await fetch(`${API_BASE}/api/users`)
     const data = await res.json()
     setUsers(data)
-  }
+  }, [])
 
-  const loadPosts = async () => {
+  const loadPosts = useCallback(async () => {
     const res = await fetch(`${API_BASE}/api/posts`)
     const data: Post[] = await res.json()
-    // fetch favorite counts in parallel
     const withCounts = await Promise.all(
       data.map(async (p) => {
         try {
@@ -58,16 +61,16 @@ export function App() {
       })
     )
     setPosts(withCounts)
-  }
+  }, [])
 
-  const loadFavs = async (uid: number) => {
+  const loadFavs = useCallback(async (uid: number) => {
     if (!uid) return setFavPostIds([])
     const r = await fetch(`${API_BASE}/api/users/${uid}/favorites`)
     const j = await r.json()
     setFavPostIds((j.postIds as number[]) ?? [])
-  }
+  }, [])
 
-  const loadPostsByUserId = async (uid: number) => {
+  const loadPostsByUserId = useCallback(async (uid: number) => {
     const res = await fetch(`${API_BASE}/api/users/${uid}/posts`)
     const data: Post[] = await res.json()
     const withCounts = await Promise.all(
@@ -82,41 +85,35 @@ export function App() {
       })
     )
     setPosts(withCounts)
-  }
-
-  // 初回ロード（ユーザー/全投稿）
-  useEffect(() => {
-    loadUsers()
-    loadPosts()
   }, [])
 
-  // ルートとユーザー一覧の準備に応じて投稿を読み込む
+  // ----- Effects -----
+  useEffect(() => {
+    void loadUsers(); void loadPosts()
+  }, [loadUsers, loadPosts])
+
   useEffect(() => {
     if (routeUserName) {
-      const u = users.find((x: User) => x.name === routeUserName)
+      const u = users.find((x) => x.name === routeUserName)
       if (u) void loadPostsByUserId(u.id)
       else setPosts([])
     } else {
       void loadPosts()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [routeUserName, users])
+  }, [routeUserName, users, loadPostsByUserId, loadPosts])
 
-  // ログインユーザーの変更に応じてお気に入りを再取得
   useEffect(() => {
-    if (me?.id) loadFavs(me.id)
+    if (me?.id) void loadFavs(me.id)
     else setFavPostIds([])
-  }, [me?.id])
+  }, [me?.id, loadFavs])
 
   useEffect(() => {
-    // 起動時にトークンがあれば /me を確認
     const init = async () => {
       if (!token) return
       try {
         const res = await fetch(`${API_BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
         if (res.ok) {
           const j = await res.json()
-          // j = { sub, email } なので users から補完
           const u = users.find((x: User) => x.email === j.email) || null
           setMe(u)
         } else {
@@ -128,11 +125,35 @@ export function App() {
         setMe(null)
       }
     }
-    init()
+    void init()
+    // users に依存させると毎回再評価されるため token のみ。users 変化時は別で補完
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
-  const submitUser = async (e: FormEvent) => {
+  useEffect(() => {
+    // users が後から読み込まれた場合に /me の結果を補完
+    if (token && !me) {
+      // /me 再取得はせず、メールで補完
+      const restore = async () => {
+        try {
+          const res = await fetch(`${API_BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+          if (res.ok) {
+            const j = await res.json()
+            const u = users.find((x: User) => x.email === j.email) || null
+            setMe(u)
+          }
+        } catch {}
+      }
+      void restore()
+    }
+  }, [users, token, me])
+
+  // ----- Handlers (memoized) -----
+  const handleNameChange = useCallback((v: string) => setName(v), [])
+  const handleEmailChange = useCallback((v: string) => setEmail(v), [])
+  const handleMessageChange = useCallback((v: string) => setMessage(v), [])
+
+  const submitUser = useCallback(async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
     const res = await fetch(`${API_BASE}/api/users`, {
@@ -148,9 +169,9 @@ export function App() {
       setEmail('')
       await loadUsers()
     }
-  }
+  }, [name, email, loadUsers])
 
-  const login = async (e: FormEvent) => {
+  const login = useCallback(async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
     try {
@@ -170,15 +191,15 @@ export function App() {
     } catch (e) {
       setError('network error')
     }
-  }
+  }, [email, setTokenAndPersist])
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setTokenAndPersist(null)
     setMe(null)
     setFavPostIds([])
-  }
+  }, [setTokenAndPersist])
 
-  const submitPost = async (e: FormEvent) => {
+  const submitPost = useCallback(async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
     if (!token || !me) {
@@ -198,9 +219,9 @@ export function App() {
       await loadPosts()
       await loadFavs(me.id)
     }
-  }
+  }, [token, me, authHeader, message, loadPosts, loadFavs])
 
-  const toggleFavorite = async (postId: number) => {
+  const toggleFavorite = useCallback(async (postId: number) => {
     if (!token || !me) {
       setError('ログインが必要です')
       return
@@ -220,104 +241,46 @@ export function App() {
         } catch {}
       })(),
     ])
-  }
+  }, [token, me, authHeader, loadFavs])
 
+  const goHome = useCallback(() => navigate('/'), [navigate])
+  const refreshLatest = useCallback(() => { void loadPosts() }, [loadPosts])
+
+  // ----- Render -----
   return (
     <div className="x-app">
       <div className="x-layout">
         {/* Left Nav */}
-        <nav className="x-nav">
-          {/* ロゴ削除 */}
-          <button className="btn btn-full" onClick={() => navigate('/')}>
-            <span className="label">ホーム</span>
-          </button>
-          <a className="btn btn-full" href="#" onClick={(e: React.MouseEvent<HTMLAnchorElement>) => { e.preventDefault(); loadPosts() }}>
-            <span className="label">最新</span>
-          </a>
-          {me ? (
-            <button className="btn btn-full" onClick={logout}><span className="label">ログアウト</span></button>
-          ) : null}
-        </nav>
+        <LeftNav me={!!me} onHome={goHome} onLatest={refreshLatest} onLogout={logout} />
 
         {/* Main */}
         <main className="x-main">
           <div className="x-main-header">ホーム</div>
 
           {routeUserName ? (
-            <div className="x-banner">「{routeUserName}」さんの投稿のみ表示中 <button className="btn" onClick={() => navigate('/')}>全ての投稿</button></div>
+            <div className="x-banner">「{routeUserName}」さんの投稿のみ表示中 <button className="btn" onClick={goHome}>全ての投稿</button></div>
           ) : null}
 
           {/* Composer */}
-          <section className="x-composer">
-            <div className="x-avatar">{me ? me.name.slice(0,1).toUpperCase() : '?'}</div>
-            <div className="x-compose-box">
-              {me ? (
-                <form onSubmit={submitPost}>
-                  <input className="x-input" placeholder="いまどうしてる？" value={message} onChange={(e: any) => setMessage((e.target as HTMLInputElement).value)} />
-                  <div className="x-actions">
-                    <button className="btn btn-primary" type="submit">投稿</button>
-                  </div>
-                </form>
-              ) : (
-                <div className="x-banner">投稿するにはログインしてください</div>
-              )}
-            </div>
-          </section>
+          <Composer me={me} message={message} onChangeMessage={handleMessageChange} onSubmit={submitPost} />
 
           {/* Tweets */}
-          <ul className="x-tweets">
-            {posts.map((p) => (
-              <li key={p.id} className="x-tweet">
-                <div className="x-avatar">{String(p.userId)}</div>
-                <div style={{flex:1}}>
-                  <div className="meta">
-                    <span className="name">ユーザー{p.userId}</span>
-                    <span className="handle">· #{p.id}</span>
-                  </div>
-                  <div className="text">{p.message}</div>
-                </div>
-                <div className="right">
-                  <div className="x-fav">
-                    <button className="btn" onClick={() => toggleFavorite(p.id)}>⭐</button>
-                    <span>{p.count ?? 0}</span>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <TweetsList posts={posts} favSet={favSet} onToggleFav={toggleFavorite} />
         </main>
 
         {/* Right Aside */}
         <aside className="x-aside">
-          <div className="x-card">
-            <h3>ログイン</h3>
-            {me ? (
-              <div className="x-muted">{me.name}（{me.email}）でログイン中</div>
-            ) : (
-              <form onSubmit={login} style={{display:'grid', gap:8}}>
-                <input className="input" placeholder="メール" value={email} onChange={(e: any) => setEmail((e.target as HTMLInputElement).value)} />
-                <button className="btn btn-primary" type="submit">ログイン</button>
-              </form>
-            )}
-          </div>
+          <LoginCard me={me} email={email} onChangeEmail={handleEmailChange} onLogin={login} />
 
-          <div className="x-card">
-            <h3>ユーザー作成</h3>
-            <form onSubmit={submitUser} style={{display:'grid', gap:8}}>
-              <input className="input" placeholder="名前" value={name} onChange={(e: any) => setName((e.target as HTMLInputElement).value)} />
-              <input className="input" placeholder="メール" value={email} onChange={(e: any) => setEmail((e.target as HTMLInputElement).value)} />
-              <button className="btn btn-primary" type="submit">作成</button>
-            </form>
-            {error && <div className="x-muted" style={{color:'#ff6b6b', marginTop:8}}>{error}</div>}
-            <ul style={{listStyle:'none', padding:0, marginTop:8}}>
-              {users.map((u) => (
-                <li key={u.id} style={{padding:'8px 0', borderBottom:'1px solid var(--border)'}}>
-                  <span>{u.name} ({u.email})</span>
-                  <Link className="btn" style={{marginLeft:8}} to={`/user/${encodeURIComponent(u.name)}`}>投稿を見る</Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <CreateUserCard
+            users={users}
+            name={name}
+            email={email}
+            onChangeName={handleNameChange}
+            onChangeEmail={handleEmailChange}
+            onSubmit={submitUser}
+            error={error}
+          />
 
           <div className="x-card x-muted">DDD Clean Twitter</div>
         </aside>
