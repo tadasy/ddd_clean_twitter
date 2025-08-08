@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { PostRepositoryDrizzle } from '../infrastructure/postRepositoryDrizzle'
 import { CreatePostUseCase } from '../../application/usecase/createPostUseCase'
 import { PostPresenter } from '../presenter/postPresenter'
+import { requireAuth } from '../../../../shared/auth/requireAuth'
 
 const createPostSchema = z.object({
   userId: z.number().int().positive(),
@@ -13,7 +14,7 @@ export const registerPostRoutes = (app: Hono) => {
   const repo = new PostRepositoryDrizzle()
   const usecase = new CreatePostUseCase({ postRepository: repo })
 
-  app.post('/api/posts', async (c) => {
+  app.post('/api/posts', requireAuth, async (c) => {
     const body = await c.req.json().catch(() => null)
     const parsed = createPostSchema.safeParse(body)
     if (!parsed.success) return c.json({ error: 'invalid request' }, 400)

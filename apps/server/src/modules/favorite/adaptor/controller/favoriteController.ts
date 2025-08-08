@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { ToggleFavoriteUseCase } from '../../application/usecase/toggleFavoriteUseCase'
 import { FavoriteRepositoryDrizzle } from '../infrastructure/favoriteRepositoryDrizzle'
 import { FavoritePresenter } from '../presenter/favoritePresenter'
+import { requireAuth } from '../../../../shared/auth/requireAuth'
 
 const toggleSchema = z.object({ userId: z.number().int().positive(), postId: z.number().int().positive() })
 
@@ -10,7 +11,7 @@ export const registerFavoriteRoutes = (app: Hono) => {
   const repo = new FavoriteRepositoryDrizzle()
   const usecase = new ToggleFavoriteUseCase({ favoriteRepository: repo })
 
-  app.post('/api/favorites/toggle', async (c) => {
+  app.post('/api/favorites/toggle', requireAuth, async (c) => {
     const body = await c.req.json().catch(() => null)
     const parsed = toggleSchema.safeParse(body)
     if (!parsed.success) return c.json({ error: 'invalid request' }, 400)
