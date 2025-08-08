@@ -16,7 +16,6 @@ export function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
   const [me, setMe] = useState<User | null>(null)
 
-  const [actingUserId, setActingUserId] = useState<number>(1)
   const [message, setMessage] = useState('')
   const [posts, setPosts] = useState<Post[]>([])
   const [favPostIds, setFavPostIds] = useState<number[]>([])
@@ -89,7 +88,7 @@ export function App() {
     setRouteUserName(name)
     if (name) {
       // users が未ロードの場合は後続の users 依存の useEffect で読み込み
-      const u = users.find((x) => x.name === name)
+      const u = users.find((x: User) => x.name === name)
       if (u) {
         await loadPostsByUserId(u.id)
       }
@@ -103,9 +102,11 @@ export function App() {
     loadPosts()
   }, [])
 
+  // ログインユーザーの変更に応じてお気に入りを再取得
   useEffect(() => {
-    if (actingUserId && actingUserId > 0) loadFavs(actingUserId)
-  }, [actingUserId])
+    if (me?.id) loadFavs(me.id)
+    else setFavPostIds([])
+  }, [me?.id])
 
   useEffect(() => {
     // 起動時にトークンがあれば /me を確認
@@ -118,7 +119,6 @@ export function App() {
           // j = { sub, email } なので users から補完
           const u = users.find((x: User) => x.email === j.email) || null
           setMe(u)
-          if (u) setActingUserId(u.id)
         } else {
           setTokenAndPersist(null)
           setMe(null)
@@ -146,7 +146,7 @@ export function App() {
     // users が揃ったら、ルートに応じて投稿を読み込む
     const name = getRouteUserName()
     if (name) {
-      const u = users.find((x) => x.name === name)
+      const u = users.find((x: User) => x.name === name)
       if (u) void loadPostsByUserId(u.id)
       else setPosts([])
     }
@@ -188,7 +188,6 @@ export function App() {
       const j: LoginResponse = await res.json()
       setTokenAndPersist(j.token)
       setMe(j.user)
-      setActingUserId(j.user.id)
     } catch (e) {
       setError('network error')
     }
@@ -197,19 +196,20 @@ export function App() {
   const logout = () => {
     setTokenAndPersist(null)
     setMe(null)
+    setFavPostIds([])
   }
 
   const submitPost = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
-    if (!token) {
+    if (!token || !me) {
       setError('ログインが必要です')
       return
     }
     const res = await fetch(`${API_BASE}/api/posts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(authHeader || {}) },
-      body: JSON.stringify({ userId: actingUserId, message }),
+      body: JSON.stringify({ userId: me.id, message }),
     })
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
@@ -217,22 +217,22 @@ export function App() {
     } else {
       setMessage('')
       await loadPosts()
-      await loadFavs(actingUserId)
+      await loadFavs(me.id)
     }
   }
 
   const toggleFavorite = async (postId: number) => {
-    if (!token) {
+    if (!token || !me) {
       setError('ログインが必要です')
       return
     }
     await fetch(`${API_BASE}/api/favorites/toggle`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(authHeader || {}) },
-      body: JSON.stringify({ userId: actingUserId, postId }),
+      body: JSON.stringify({ userId: me.id, postId }),
     })
     await Promise.all([
-      loadFavs(actingUserId),
+      loadFavs(me.id),
       (async () => {
         try {
           const r = await fetch(`${API_BASE}/api/posts/${postId}/favorites/count`)
@@ -300,14 +300,14 @@ export function App() {
 
       <section style={{ marginBottom: 24 }}>
         <h2 style={{ fontSize: 18 }}>投稿</h2>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-          <label>操作ユーザーID: </label>
-          <input type="number" value={actingUserId} onChange={(e: any) => setActingUserId(Number((e.target as HTMLInputElement).value))} style={{ width: 100, padding: 6 }} />
-        </div>
-        <form onSubmit={submitPost} style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          <input placeholder="いまどうしてる？" value={message} onChange={(e: any) => setMessage((e.target as HTMLInputElement).value)} style={{ flex: 1, padding: 8 }} />
-          <button type="submit" style={{ padding: '8px 16px' }}>投稿</button>
-        </form>
+        {me ? (
+          <form onSubmit={submitPost} style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            <input placeholder="いまどうしてる？" value={message} onChange={(e: any) => setMessage((e.target as HTMLInputElement).value)} style={{ flex: 1, padding: 8 }} />
+            <button type="submit" style={{ padding: '8px 16px' }}>投稿</button>
+          </form>
+        ) : (
+          <div style={{ marginBottom: 16, color: '#666' }}>投稿するにはログインしてください</div>
+        )}
         <ul style={{ listStyle: 'none', padding: 0 }}>
           {posts.map((p) => (
             <li key={p.id} style={{ padding: 12, border: '1px solid #eee', borderRadius: 8, marginBottom: 8 }}>
