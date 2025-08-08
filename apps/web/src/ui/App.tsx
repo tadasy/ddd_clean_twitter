@@ -209,7 +209,7 @@ export function App() {
     const res = await fetch(`${API_BASE}/api/posts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(authHeader || {}) },
-      body: JSON.stringify({ userId: me.id, message }),
+      body: JSON.stringify({ message }),
     })
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
@@ -229,7 +229,7 @@ export function App() {
     await fetch(`${API_BASE}/api/favorites/toggle`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(authHeader || {}) },
-      body: JSON.stringify({ userId: me.id, postId }),
+      body: JSON.stringify({ postId }),
     })
     await Promise.all([
       loadFavs(me.id),
