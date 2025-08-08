@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import './x.css'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3000'
@@ -20,7 +21,11 @@ export function App() {
   const [message, setMessage] = useState('')
   const [posts, setPosts] = useState<Post[]>([])
   const [favPostIds, setFavPostIds] = useState<number[]>([])
-  const [routeUserName, setRouteUserName] = useState<string | null>(null)
+  // ルーティング（React Router）
+  const { name: routeNameParam } = useParams()
+  const routeUserName = routeNameParam ?? null
+  const navigate = useNavigate()
+
   const favSet = useMemo(() => new Set(favPostIds), [favPostIds])
 
   const setTokenAndPersist = (t: string | null) => {
@@ -62,11 +67,6 @@ export function App() {
     setFavPostIds((j.postIds as number[]) ?? [])
   }
 
-  const getRouteUserName = () => {
-    const m = /^\/user\/([^/]+)$/.exec(window.location.pathname)
-    return m ? decodeURIComponent(m[1]) : null
-  }
-
   const loadPostsByUserId = async (uid: number) => {
     const res = await fetch(`${API_BASE}/api/users/${uid}/posts`)
     const data: Post[] = await res.json()
@@ -84,24 +84,23 @@ export function App() {
     setPosts(withCounts)
   }
 
-  const handleRouteChange = async () => {
-    const name = getRouteUserName()
-    setRouteUserName(name)
-    if (name) {
-      // users が未ロードの場合は後続の users 依存の useEffect で読み込み
-      const u = users.find((x: User) => x.name === name)
-      if (u) {
-        await loadPostsByUserId(u.id)
-      }
-    } else {
-      await loadPosts()
-    }
-  }
-
+  // 初回ロード（ユーザー/全投稿）
   useEffect(() => {
     loadUsers()
     loadPosts()
   }, [])
+
+  // ルートとユーザー一覧の準備に応じて投稿を読み込む
+  useEffect(() => {
+    if (routeUserName) {
+      const u = users.find((x: User) => x.name === routeUserName)
+      if (u) void loadPostsByUserId(u.id)
+      else setPosts([])
+    } else {
+      void loadPosts()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeUserName, users])
 
   // ログインユーザーの変更に応じてお気に入りを再取得
   useEffect(() => {
@@ -132,27 +131,6 @@ export function App() {
     init()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
-
-  useEffect(() => {
-    // 初期ロード
-    handleRouteChange()
-    // popstate 対応（戻る/進む）
-    const onPop = () => { void handleRouteChange() }
-    window.addEventListener('popstate', onPop)
-    return () => window.removeEventListener('popstate', onPop)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => {
-    // users が揃ったら、ルートに応じて投稿を読み込む
-    const name = getRouteUserName()
-    if (name) {
-      const u = users.find((x: User) => x.name === name)
-      if (u) void loadPostsByUserId(u.id)
-      else setPosts([])
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [users])
 
   const submitUser = async (e: FormEvent) => {
     e.preventDefault()
@@ -244,19 +222,13 @@ export function App() {
     ])
   }
 
-  const navigateToUser = (name: string | null) => {
-    const path = name ? `/user/${encodeURIComponent(name)}` : '/'
-    window.history.pushState({}, '', path)
-    void handleRouteChange()
-  }
-
   return (
     <div className="x-app">
       <div className="x-layout">
         {/* Left Nav */}
         <nav className="x-nav">
           {/* ロゴ削除 */}
-          <button className="btn btn-full" onClick={() => navigateToUser(null)}>
+          <button className="btn btn-full" onClick={() => navigate('/')}>
             <span className="label">ホーム</span>
           </button>
           <a className="btn btn-full" href="#" onClick={(e: React.MouseEvent<HTMLAnchorElement>) => { e.preventDefault(); loadPosts() }}>
@@ -272,7 +244,7 @@ export function App() {
           <div className="x-main-header">ホーム</div>
 
           {routeUserName ? (
-            <div className="x-banner">「{routeUserName}」さんの投稿のみ表示中 <button className="btn" onClick={() => navigateToUser(null)}>全ての投稿</button></div>
+            <div className="x-banner">「{routeUserName}」さんの投稿のみ表示中 <button className="btn" onClick={() => navigate('/')}>全ての投稿</button></div>
           ) : null}
 
           {/* Composer */}
@@ -341,7 +313,7 @@ export function App() {
               {users.map((u) => (
                 <li key={u.id} style={{padding:'8px 0', borderBottom:'1px solid var(--border)'}}>
                   <span>{u.name} ({u.email})</span>
-                  <button className="btn" style={{marginLeft:8}} onClick={() => navigateToUser(u.name)}>投稿を見る</button>
+                  <Link className="btn" style={{marginLeft:8}} to={`/user/${encodeURIComponent(u.name)}`}>投稿を見る</Link>
                 </li>
               ))}
             </ul>
