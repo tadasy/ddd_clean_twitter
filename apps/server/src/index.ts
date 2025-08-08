@@ -4,6 +4,7 @@ import type { Context } from 'hono'
 import { registerUserRoutes } from './modules/user/adaptor/controller/userController'
 import { registerPostRoutes } from './modules/post/adaptor/controller/postController'
 import { registerFavoriteRoutes } from './modules/favorite/adaptor/controller/favoriteController'
+import { registerAuthRoutes } from './modules/auth/adaptor/controller/authController'
 
 const app = new Hono()
 
@@ -11,6 +12,7 @@ app.use('*', cors())
 
 app.get('/health', (c: Context) => c.json({ ok: true }))
 
+registerAuthRoutes(app)
 registerUserRoutes(app)
 registerPostRoutes(app)
 registerFavoriteRoutes(app)
