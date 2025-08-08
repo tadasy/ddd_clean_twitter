@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import React, { useEffect, useMemo, useState, type FormEvent } from 'react'
+import './x.css'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3000'
 
@@ -250,83 +251,105 @@ export function App() {
   }
 
   return (
-    <div style={{ maxWidth: 900, margin: '40px auto', fontFamily: 'system-ui, -apple-system', padding: 16 }}>
-      <h1>DDD Clean Twitter</h1>
+    <div className="x-app">
+      <div className="x-layout">
+        {/* Left Nav */}
+        <nav className="x-nav">
+          {/* ロゴ削除 */}
+          <button className="btn btn-full" onClick={() => navigateToUser(null)}>
+            <span className="label">ホーム</span>
+          </button>
+          <a className="btn btn-full" href="#" onClick={(e: React.MouseEvent<HTMLAnchorElement>) => { e.preventDefault(); loadPosts() }}>
+            <span className="label">最新</span>
+          </a>
+          {me ? (
+            <button className="btn btn-full" onClick={logout}><span className="label">ログアウト</span></button>
+          ) : null}
+        </nav>
 
-      {routeUserName ? (
-        <div style={{ margin: '8px 0', padding: '8px', background: '#f8f8f8', borderRadius: 8 }}>
-          <span>「{routeUserName}」さんの投稿のみ表示中</span>
-          <button onClick={() => navigateToUser(null)} style={{ marginLeft: 12, padding: '6px 10px' }}>全ての投稿</button>
-        </div>
-      ) : null}
+        {/* Main */}
+        <main className="x-main">
+          <div className="x-main-header">ホーム</div>
 
-      <section style={{ marginBottom: 16 }}>
-        <h2 style={{ fontSize: 18 }}>ログイン</h2>
-        {me ? (
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <div>ログイン中: {me.name} ({me.email})</div>
-            <button onClick={logout} style={{ padding: '6px 12px' }}>ログアウト</button>
+          {routeUserName ? (
+            <div className="x-banner">「{routeUserName}」さんの投稿のみ表示中 <button className="btn" onClick={() => navigateToUser(null)}>全ての投稿</button></div>
+          ) : null}
+
+          {/* Composer */}
+          <section className="x-composer">
+            <div className="x-avatar">{me ? me.name.slice(0,1).toUpperCase() : '?'}</div>
+            <div className="x-compose-box">
+              {me ? (
+                <form onSubmit={submitPost}>
+                  <input className="x-input" placeholder="いまどうしてる？" value={message} onChange={(e: any) => setMessage((e.target as HTMLInputElement).value)} />
+                  <div className="x-actions">
+                    <button className="btn btn-primary" type="submit">投稿</button>
+                  </div>
+                </form>
+              ) : (
+                <div className="x-banner">投稿するにはログインしてください</div>
+              )}
+            </div>
+          </section>
+
+          {/* Tweets */}
+          <ul className="x-tweets">
+            {posts.map((p) => (
+              <li key={p.id} className="x-tweet">
+                <div className="x-avatar">{String(p.userId)}</div>
+                <div style={{flex:1}}>
+                  <div className="meta">
+                    <span className="name">ユーザー{p.userId}</span>
+                    <span className="handle">· #{p.id}</span>
+                  </div>
+                  <div className="text">{p.message}</div>
+                </div>
+                <div className="right">
+                  <div className="x-fav">
+                    <button className="btn" onClick={() => toggleFavorite(p.id)}>⭐</button>
+                    <span>{p.count ?? 0}</span>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </main>
+
+        {/* Right Aside */}
+        <aside className="x-aside">
+          <div className="x-card">
+            <h3>ログイン</h3>
+            {me ? (
+              <div className="x-muted">{me.name}（{me.email}）でログイン中</div>
+            ) : (
+              <form onSubmit={login} style={{display:'grid', gap:8}}>
+                <input className="input" placeholder="メール" value={email} onChange={(e: any) => setEmail((e.target as HTMLInputElement).value)} />
+                <button className="btn btn-primary" type="submit">ログイン</button>
+              </form>
+            )}
           </div>
-        ) : (
-          <form onSubmit={login} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-            <input
-              placeholder="メール"
-              value={email}
-              onChange={(e: any) => setEmail((e.target as HTMLInputElement).value)}
-              style={{ flex: 1, padding: 8 }}
-            />
-            <button type="submit" style={{ padding: '8px 16px' }}>ログイン</button>
-          </form>
-        )}
-      </section>
 
-      <section style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 18 }}>ユーザー作成</h2>
-        <form onSubmit={submitUser} style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-          <input placeholder="名前" value={name} onChange={(e: any) => setName((e.target as HTMLInputElement).value)} style={{ flex: 1, padding: 8 }} />
-          <input placeholder="メール" value={email} onChange={(e: any) => setEmail((e.target as HTMLInputElement).value)} style={{ flex: 1, padding: 8 }} />
-          <button type="submit" style={{ padding: '8px 16px' }}>作成</button>
-        </form>
-        {error && <div style={{ color: 'crimson', marginBottom: 8 }}>{error}</div>}
-        <ul style={{ listStyle: 'none', padding: 0 }}>
-          {users.map((u) => (
-            <li key={u.id} style={{ padding: 8, borderBottom: '1px solid #eee' }}>
-              {u.id}. {u.name} ({u.email})
-              <button style={{ marginLeft: 12, padding: '4px 8px' }} onClick={() => navigateToUser(u.name)}>このユーザーの投稿</button>
-            </li>
-          ))}
-        </ul>
-      </section>
+          <div className="x-card">
+            <h3>ユーザー作成</h3>
+            <form onSubmit={submitUser} style={{display:'grid', gap:8}}>
+              <input className="input" placeholder="名前" value={name} onChange={(e: any) => setName((e.target as HTMLInputElement).value)} />
+              <input className="input" placeholder="メール" value={email} onChange={(e: any) => setEmail((e.target as HTMLInputElement).value)} />
+              <button className="btn btn-primary" type="submit">作成</button>
+            </form>
+            {error && <div className="x-muted" style={{color:'#ff6b6b', marginTop:8}}>{error}</div>}
+            <ul style={{listStyle:'none', padding:0, marginTop:8}}>
+              {users.map((u) => (
+                <li key={u.id} style={{padding:'8px 0', borderBottom:'1px solid var(--border)'}}>
+                  <span>{u.name} ({u.email})</span>
+                  <button className="btn" style={{marginLeft:8}} onClick={() => navigateToUser(u.name)}>投稿を見る</button>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-      <section style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 18 }}>投稿</h2>
-        {me ? (
-          <form onSubmit={submitPost} style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-            <input placeholder="いまどうしてる？" value={message} onChange={(e: any) => setMessage((e.target as HTMLInputElement).value)} style={{ flex: 1, padding: 8 }} />
-            <button type="submit" style={{ padding: '8px 16px' }}>投稿</button>
-          </form>
-        ) : (
-          <div style={{ marginBottom: 16, color: '#666' }}>投稿するにはログインしてください</div>
-        )}
-        <ul style={{ listStyle: 'none', padding: 0 }}>
-          {posts.map((p) => (
-            <li key={p.id} style={{ padding: 12, border: '1px solid #eee', borderRadius: 8, marginBottom: 8 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontWeight: 600 }}>#{p.id} ユーザー{p.userId}</div>
-                  <div>{p.message}</div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div>⭐ {p.count ?? 0}</div>
-                  <button onClick={() => toggleFavorite(p.id)} style={{ padding: '6px 10px', marginTop: 8 }}>
-                    {favSet.has(p.id) ? 'Unfavorite' : 'Favorite'}
-                  </button>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
+          <div className="x-card x-muted">DDD Clean Twitter</div>
+        </aside>
+      </div>
     </div>
   )
 }
