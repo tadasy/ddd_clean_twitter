@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3000'
 
 type User = { id: number; name: string; email: string }
 type Post = { id: number; userId: number; message: string; count?: number }
+
+type LoginResponse = { token: string; user: User }
 
 export function App() {
   const [users, setUsers] = useState<User[]>([])
@@ -11,11 +13,22 @@ export function App() {
   const [email, setEmail] = useState('')
   const [error, setError] = useState<string | null>(null)
 
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
+  const [me, setMe] = useState<User | null>(null)
+
   const [actingUserId, setActingUserId] = useState<number>(1)
   const [message, setMessage] = useState('')
   const [posts, setPosts] = useState<Post[]>([])
   const [favPostIds, setFavPostIds] = useState<number[]>([])
   const favSet = useMemo(() => new Set(favPostIds), [favPostIds])
+
+  const setTokenAndPersist = (t: string | null) => {
+    setToken(t)
+    if (t) localStorage.setItem('token', t)
+    else localStorage.removeItem('token')
+  }
+
+  const authHeader = token ? { Authorization: `Bearer ${token}` } : undefined
 
   const loadUsers = async () => {
     const res = await fetch(`${API_BASE}/api/users`)
@@ -57,7 +70,32 @@ export function App() {
     if (actingUserId && actingUserId > 0) loadFavs(actingUserId)
   }, [actingUserId])
 
-  const submitUser = async (e: React.FormEvent) => {
+  useEffect(() => {
+    // 起動時にトークンがあれば /me を確認
+    const init = async () => {
+      if (!token) return
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+        if (res.ok) {
+          const j = await res.json()
+          // j = { sub, email } なので users から補完
+          const u = users.find((x: User) => x.email === j.email) || null
+          setMe(u)
+          if (u) setActingUserId(u.id)
+        } else {
+          setTokenAndPersist(null)
+          setMe(null)
+        }
+      } catch {
+        setTokenAndPersist(null)
+        setMe(null)
+      }
+    }
+    init()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token])
+
+  const submitUser = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
     const res = await fetch(`${API_BASE}/api/users`, {
@@ -75,12 +113,44 @@ export function App() {
     }
   }
 
-  const submitPost = async (e: React.FormEvent) => {
+  const login = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        setError(err?.error ?? 'login failed')
+        return
+      }
+      const j: LoginResponse = await res.json()
+      setTokenAndPersist(j.token)
+      setMe(j.user)
+      setActingUserId(j.user.id)
+    } catch (e) {
+      setError('network error')
+    }
+  }
+
+  const logout = () => {
+    setTokenAndPersist(null)
+    setMe(null)
+  }
+
+  const submitPost = async (e: FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    if (!token) {
+      setError('ログインが必要です')
+      return
+    }
     const res = await fetch(`${API_BASE}/api/posts`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(authHeader || {}) },
       body: JSON.stringify({ userId: actingUserId, message }),
     })
     if (!res.ok) {
@@ -94,29 +164,56 @@ export function App() {
   }
 
   const toggleFavorite = async (postId: number) => {
+    if (!token) {
+      setError('ログインが必要です')
+      return
+    }
     await fetch(`${API_BASE}/api/favorites/toggle`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(authHeader || {}) },
       body: JSON.stringify({ userId: actingUserId, postId }),
     })
-    await Promise.all([loadFavs(actingUserId), (async () => {
-      try {
-        const r = await fetch(`${API_BASE}/api/posts/${postId}/favorites/count`)
-        const j = await r.json()
-        setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, count: j.count as number } : p)))
-      } catch {}
-    })()])
+    await Promise.all([
+      loadFavs(actingUserId),
+      (async () => {
+        try {
+          const r = await fetch(`${API_BASE}/api/posts/${postId}/favorites/count`)
+          const j = await r.json()
+          setPosts((prev: Post[]) => prev.map((p) => (p.id === postId ? { ...p, count: j.count as number } : p)))
+        } catch {}
+      })(),
+    ])
   }
 
   return (
     <div style={{ maxWidth: 900, margin: '40px auto', fontFamily: 'system-ui, -apple-system', padding: 16 }}>
       <h1>DDD Clean Twitter</h1>
 
+      <section style={{ marginBottom: 16 }}>
+        <h2 style={{ fontSize: 18 }}>ログイン</h2>
+        {me ? (
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div>ログイン中: {me.name} ({me.email})</div>
+            <button onClick={logout} style={{ padding: '6px 12px' }}>ログアウト</button>
+          </div>
+        ) : (
+          <form onSubmit={login} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            <input
+              placeholder="メール"
+              value={email}
+              onChange={(e: any) => setEmail((e.target as HTMLInputElement).value)}
+              style={{ flex: 1, padding: 8 }}
+            />
+            <button type="submit" style={{ padding: '8px 16px' }}>ログイン</button>
+          </form>
+        )}
+      </section>
+
       <section style={{ marginBottom: 24 }}>
         <h2 style={{ fontSize: 18 }}>ユーザー作成</h2>
         <form onSubmit={submitUser} style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-          <input placeholder="名前" value={name} onChange={(e) => setName(e.target.value)} style={{ flex: 1, padding: 8 }} />
-          <input placeholder="メール" value={email} onChange={(e) => setEmail(e.target.value)} style={{ flex: 1, padding: 8 }} />
+          <input placeholder="名前" value={name} onChange={(e: any) => setName((e.target as HTMLInputElement).value)} style={{ flex: 1, padding: 8 }} />
+          <input placeholder="メール" value={email} onChange={(e: any) => setEmail((e.target as HTMLInputElement).value)} style={{ flex: 1, padding: 8 }} />
           <button type="submit" style={{ padding: '8px 16px' }}>作成</button>
         </form>
         {error && <div style={{ color: 'crimson', marginBottom: 8 }}>{error}</div>}
@@ -131,10 +228,10 @@ export function App() {
         <h2 style={{ fontSize: 18 }}>投稿</h2>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
           <label>操作ユーザーID: </label>
-          <input type="number" value={actingUserId} onChange={(e) => setActingUserId(Number(e.target.value))} style={{ width: 100, padding: 6 }} />
+          <input type="number" value={actingUserId} onChange={(e: any) => setActingUserId(Number((e.target as HTMLInputElement).value))} style={{ width: 100, padding: 6 }} />
         </div>
         <form onSubmit={submitPost} style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          <input placeholder="いまどうしてる？" value={message} onChange={(e) => setMessage(e.target.value)} style={{ flex: 1, padding: 8 }} />
+          <input placeholder="いまどうしてる？" value={message} onChange={(e: any) => setMessage((e.target as HTMLInputElement).value)} style={{ flex: 1, padding: 8 }} />
           <button type="submit" style={{ padding: '8px 16px' }}>投稿</button>
         </form>
         <ul style={{ listStyle: 'none', padding: 0 }}>
