@@ -1,0 +1,3 @@
+{
+  "extends": "@typespec/compiler/tsconfig.tsp.json"
+}

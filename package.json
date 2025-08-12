@@ -1,5 +1,5 @@
 {
-  "name": "ddd-clean-twitter",
+  "name": "ddd_clean_twitter",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -7,7 +7,9 @@
   ],
   "scripts": {
     "dev": "pnpm -r --parallel dev",
-    "build": "pnpm -r build",
+    "build:api": "pnpm -C packages/api-spec build",
+    "build:types": "pnpm -C packages/api-types build",
+    "build": "pnpm -C packages/api-spec build && pnpm -C packages/api-types build && echo build",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "format": "prettier --write ."

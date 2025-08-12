@@ -1,0 +1,19 @@
+{
+  "name": "@repo/api-types",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "types": "src/index.ts",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "build": "tsx scripts/generate.ts",
+    "prepublishOnly": "pnpm build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.4",
+    "openapi-typescript": "^7.4.2",
+    "tsx": "^4.19.2"
+  }
+}

@@ -1,0 +1,335 @@
+openapi: 3.0.0
+info:
+  title: DDD Clean Twitter API
+  version: 0.0.0
+tags: []
+paths:
+  /api/auth/login:
+    post:
+      operationId: Auth_login
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/Api.LoginResponse'
+                  - $ref: '#/components/schemas/Api.ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Api.LoginRequest'
+  /api/auth/me:
+    get:
+      operationId: Auth_me
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/Api.MeResponse'
+                  - $ref: '#/components/schemas/Api.ErrorResponse'
+      security:
+        - BearerAuth: []
+  /api/favorites/toggle:
+    post:
+      operationId: Favorites_toggle
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Api.ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                postId:
+                  type: integer
+                  format: int32
+              required:
+                - postId
+  /api/posts:
+    get:
+      operationId: Posts_list
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Api.Post'
+                  - $ref: '#/components/schemas/Api.ErrorResponse'
+    post:
+      operationId: Posts_create
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/Api.CreatePostResponse'
+                  - $ref: '#/components/schemas/Api.ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Api.CreatePostRequest'
+      security:
+        - BearerAuth: []
+  /api/posts/{id}/favorites/count:
+    get:
+      operationId: Posts_favoriteCount
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/Api.FavoriteCount'
+                  - $ref: '#/components/schemas/Api.ErrorResponse'
+  /api/users:
+    get:
+      operationId: Users_list
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Api.User'
+                  - $ref: '#/components/schemas/Api.ErrorResponse'
+    post:
+      operationId: Users_create
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/Api.CreateUserResponse'
+                  - $ref: '#/components/schemas/Api.ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Api.CreateUserRequest'
+  /api/users/{id}/favorites:
+    get:
+      operationId: Users_listUserFavorites
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/Api.FavoritePostIds'
+                  - $ref: '#/components/schemas/Api.ErrorResponse'
+  /api/users/{id}/posts:
+    get:
+      operationId: Users_listUserPosts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Api.Post'
+                  - $ref: '#/components/schemas/Api.ErrorResponse'
+components:
+  schemas:
+    Api.CreatePostRequest:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+    Api.CreatePostResponse:
+      type: object
+      required:
+        - id
+        - userId
+        - message
+      properties:
+        id:
+          type: integer
+          format: int32
+        userId:
+          type: integer
+          format: int32
+        message:
+          type: string
+    Api.CreateUserRequest:
+      type: object
+      required:
+        - name
+        - email
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+    Api.CreateUserResponse:
+      type: object
+      required:
+        - id
+        - name
+        - email
+      properties:
+        id:
+          type: integer
+          format: int32
+        name:
+          type: string
+        email:
+          type: string
+    Api.ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+    Api.FavoriteCount:
+      type: object
+      required:
+        - postId
+        - count
+      properties:
+        postId:
+          type: integer
+          format: int32
+        count:
+          type: integer
+          format: int32
+    Api.FavoritePostIds:
+      type: object
+      required:
+        - userId
+        - postIds
+      properties:
+        userId:
+          type: integer
+          format: int32
+        postIds:
+          type: array
+          items:
+            type: integer
+            format: int32
+    Api.LoginRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+    Api.LoginResponse:
+      type: object
+      required:
+        - token
+        - user
+      properties:
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/Api.User'
+    Api.MeResponse:
+      type: object
+      required:
+        - sub
+        - email
+      properties:
+        sub:
+          type: string
+        email:
+          type: string
+    Api.Post:
+      type: object
+      required:
+        - id
+        - userId
+        - message
+      properties:
+        id:
+          type: integer
+          format: int32
+        userId:
+          type: integer
+          format: int32
+        message:
+          type: string
+    Api.User:
+      type: object
+      required:
+        - id
+        - name
+        - email
+      properties:
+        id:
+          type: integer
+          format: int32
+        name:
+          type: string
+        email:
+          type: string
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: Bearer
+servers:
+  - url: http://localhost:3000
+    description: Local server
+    variables: {}

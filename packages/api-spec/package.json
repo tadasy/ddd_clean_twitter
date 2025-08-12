@@ -1,0 +1,15 @@
+{
+  "name": "@repo/api-spec",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:openapi": "tsp compile src --emit @typespec/openapi3 --options @typespec/openapi3.output-file=openapi.yaml",
+    "build": "pnpm build:openapi"
+  },
+  "devDependencies": {
+    "@typespec/compiler": "^0.67.0",
+    "@typespec/http": "^0.67.0",
+    "@typespec/openapi3": "^0.67.0"
+  }
+}

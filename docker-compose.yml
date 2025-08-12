@@ -48,6 +48,7 @@ services:
       - '5173:5173'
     volumes:
       - ./apps/web:/app/apps/web
+      - ./packages:/app/packages
       - /app/apps/web/node_modules
 volumes:
   db-data:
