@@ -4,6 +4,7 @@ import { db } from '../../../../db/client'
 import { users } from '../../../../db/schema'
 import { eq } from 'drizzle-orm'
 import { signToken, verifyToken } from '../../../../shared/auth/jwt'
+import type { components } from '@repo/api-types'
 
 const loginSchema = z.object({ email: z.string().email() })
 
@@ -18,7 +19,8 @@ export const registerAuthRoutes = (app: Hono) => {
     if (!u) return c.json({ error: 'user not found' }, 401)
 
     const token = await signToken({ sub: u.id, email: u.email }, '7d')
-    return c.json({ token, user: { id: u.id, name: u.name, email: u.email } })
+    const resp: components['schemas']['Api.LoginResponse'] = { token, user: { id: u.id, name: u.name, email: u.email } }
+    return c.json(resp)
   })
 
   app.post('/api/auth/logout', async (c) => {
@@ -32,7 +34,8 @@ export const registerAuthRoutes = (app: Hono) => {
     const token = auth.replace(/^Bearer\s+/i, '')
     try {
       const payload = await verifyToken(token)
-      return c.json({ sub: payload.sub, email: payload.email })
+      const resp: components['schemas']['Api.MeResponse'] = { sub: String(payload.sub), email: String(payload.email) }
+      return c.json(resp)
     } catch {
       return c.json({ error: 'unauthorized' }, 401)
     }

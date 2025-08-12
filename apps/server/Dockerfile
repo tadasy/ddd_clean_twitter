@@ -10,6 +10,8 @@ WORKDIR /app
 # Copy workspace files for pnpm to resolve
 COPY package.json pnpm-workspace.yaml turbo.json ./
 COPY apps/server/package.json apps/server/
+# Add workspace package manifests needed by server
+COPY packages/api-types/package.json packages/api-types/
 
 RUN pnpm install --filter server...
 

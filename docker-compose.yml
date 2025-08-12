@@ -35,6 +35,7 @@ services:
       - '3000:3000'
     volumes:
       - ./apps/server:/app/apps/server
+      - ./packages:/app/packages
       - /app/apps/server/node_modules
   web:
     build:

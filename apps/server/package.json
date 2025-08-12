@@ -14,6 +14,7 @@
     "db:push": "drizzle-kit push --config=drizzle.config.ts"
   },
   "dependencies": {
+    "@repo/api-types": "workspace:*",
     "@hono/node-server": "^1.11.3",
     "drizzle-kit": "^0.23.1",
     "drizzle-orm": "^0.33.0",

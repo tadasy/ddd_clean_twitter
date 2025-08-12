@@ -48,7 +48,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Api.ErrorResponse'
+                anyOf:
+                  - $ref: '#/components/schemas/Api.OkResponse'
+                  - $ref: '#/components/schemas/Api.ErrorResponse'
       requestBody:
         required: true
         content:
@@ -296,6 +298,13 @@ components:
           type: string
         email:
           type: string
+    Api.OkResponse:
+      type: object
+      required:
+        - ok
+      properties:
+        ok:
+          type: boolean
     Api.Post:
       type: object
       required:

@@ -28,6 +28,7 @@ namespace ApiSpec {
     model LoginRequest { email: string; }
     model LoginResponse { token: string; user: User; }
     model MeResponse { sub: string; email: string; }
+    model OkResponse { ok: boolean; }
 
     // Security
     @useAuth(BearerAuth)
@@ -50,7 +51,7 @@ namespace ApiSpec {
 
     @route("/favorites")
     interface Favorites extends Authed {
-      @post @route("/toggle") toggle(@body body: { postId: int32 }): {} | ErrorResponse;
+      @post @route("/toggle") toggle(@body body: { postId: int32 }): OkResponse | ErrorResponse;
     }
 
     @route("/auth")

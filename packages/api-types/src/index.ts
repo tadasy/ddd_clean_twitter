@@ -181,6 +181,9 @@ export interface components {
             sub: string;
             email: string;
         };
+        "Api.OkResponse": {
+            ok: boolean;
+        };
         "Api.Post": {
             /** Format: int32 */
             id: number;
@@ -269,7 +272,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Api.ErrorResponse"];
+                    "application/json": components["schemas"]["Api.OkResponse"] | components["schemas"]["Api.ErrorResponse"];
                 };
             };
         };

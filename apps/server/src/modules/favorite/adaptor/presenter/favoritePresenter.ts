@@ -1,5 +1,6 @@
 import type { FavoriteOutputPort } from '../../application/port/favoritePorts'
 import type { Context } from 'hono'
+import type { components } from '@repo/api-types'
 
 export class FavoritePresenter implements FavoriteOutputPort {
   constructor(private readonly c: Context) {}
@@ -7,9 +8,11 @@ export class FavoritePresenter implements FavoriteOutputPort {
     this.c.res = this.c.json({ error: error.message }, 400)
   }
   successAdd(): void {
-    this.c.res = this.c.json({ ok: true }, 201)
+    const body: components['schemas']['Api.OkResponse'] = { ok: true }
+    this.c.res = this.c.json(body, 200)
   }
   successRemove(): void {
-    this.c.res = this.c.json({ ok: true }, 200)
+    const body: components['schemas']['Api.OkResponse'] = { ok: true }
+    this.c.res = this.c.json(body, 200)
   }
 }
