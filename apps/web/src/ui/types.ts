@@ -1,3 +1,5 @@
-export type User = { id: number; name: string; email: string }
-export type Post = { id: number; userId: number; message: string; count?: number }
-export type LoginResponse = { token: string; user: User }
+import type { components } from '@repo/api-types'
+
+export type User = components['schemas']['Api.User']
+export type Post = components['schemas']['Api.Post'] & { count?: number }
+export type LoginResponse = components['schemas']['Api.LoginResponse']
