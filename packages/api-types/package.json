@@ -8,7 +8,7 @@
     "src"
   ],
   "scripts": {
-    "build": "tsx scripts/generate.ts",
+    "build": "openapi-typescript ../api-spec/tsp-output/@typespec/openapi3/openapi.yaml -o src/index.ts -y",
     "prepublishOnly": "pnpm build"
   },
   "devDependencies": {
