@@ -10,12 +10,14 @@ import { CreateUserCard } from './components/CreateUserCard'
 import { useAuth } from './hooks/useAuth'
 import { useUsersAndPosts } from './hooks/useUsersAndPosts'
 import { useFavorites } from './hooks/useFavorites'
+import { useUserForm } from './hooks/useUserForm'
+import { usePostComposer } from './hooks/usePostComposer'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3000'
 
 export function App() {
   // Auth
-  const { token, me, setMe, authHeader, setTokenAndPersist, login: loginApi, logout: logoutApi } = useAuth()
+  const { token, me, setMe, authHeader, login: loginApi, logout: logoutApi } = useAuth()
 
   // Users/Posts
   const { users, posts, setPosts, loadUsers, loadPosts, loadPostsByUserId } = useUsersAndPosts()
@@ -23,11 +25,14 @@ export function App() {
   // Favorites
   const { favPostIds, favSet, setFavPostIds, loadFavs, toggleFavorite } = useFavorites(token)
 
-  // Local UI states
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [message, setMessage] = useState('')
+  // Forms (extracted)
+  const { name, email, error, setName, setEmail, submitUser, login } = useUserForm({ loadUsers, loginApi })
+  const { message, setMessage, submitPost } = usePostComposer({
+    token,
+    meId: me?.id ?? null,
+    authHeader,
+    onPosted: async () => { await loadPosts(); if (me?.id) await loadFavs(me.id) },
+  })
 
   // Router
   const { name: routeNameParam } = useParams()
@@ -68,74 +73,20 @@ export function App() {
   }, [users, token, me, setMe])
 
   // Handlers
-  const handleNameChange = useCallback((v: string) => setName(v), [])
-  const handleEmailChange = useCallback((v: string) => setEmail(v), [])
-  const handleMessageChange = useCallback((v: string) => setMessage(v), [])
-
-  const submitUser = useCallback(async (e: FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    const res = await fetch(`${API_BASE}/api/users`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email }),
-    })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      setError(err?.error ?? 'failed')
-    } else {
-      setName('')
-      setEmail('')
-      await loadUsers()
-    }
-  }, [name, email, loadUsers])
-
-  const login = useCallback(async (e: FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    try {
-      await loginApi(email)
-    } catch (e: any) {
-      setError(e?.message ?? 'network error')
-    }
-  }, [email, loginApi])
+  const handleNameChange = useCallback((v: string) => setName(v), [setName])
+  const handleEmailChange = useCallback((v: string) => setEmail(v), [setEmail])
+  const handleMessageChange = useCallback((v: string) => setMessage(v), [setMessage])
 
   const logout = useCallback(() => {
-    logoutApi()
-    setFavPostIds([])
+    logoutApi(); setFavPostIds([])
   }, [logoutApi, setFavPostIds])
-
-  const submitPost = useCallback(async (e: FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    if (!token || !me) {
-      setError('ログインが必要です')
-      return
-    }
-    const res = await fetch(`${API_BASE}/api/posts`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(authHeader || {}) },
-      body: JSON.stringify({ message }),
-    })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      setError(err?.error ?? 'failed')
-    } else {
-      setMessage('')
-      await loadPosts()
-      await loadFavs(me.id)
-    }
-  }, [token, me, authHeader, message, loadPosts, loadFavs])
 
   const updateCount = useCallback((postId: number, count: number) => {
     setPosts((prev: Post[]) => prev.map((p) => (p.id === postId ? { ...p, count } : p)))
   }, [setPosts])
 
   const onToggleFavorite = useCallback((postId: number) => {
-    if (!token || !me) {
-      setError('ログインが必要です')
-      return
-    }
+    if (!token || !me) return
     void toggleFavorite(postId, me.id, updateCount)
   }, [token, me, toggleFavorite, updateCount])
 
