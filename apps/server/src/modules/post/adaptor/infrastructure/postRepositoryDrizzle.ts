@@ -1,6 +1,6 @@
 import { db } from '../../../../db/client'
 import { posts } from '../../../../db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, desc } from 'drizzle-orm'
 import type { PostRepository } from '../../domain/repository/postRepository'
 import { Post } from '../../domain/entity/post'
 
@@ -23,12 +23,19 @@ export class PostRepositoryDrizzle implements PostRepository {
   }
 
   async findByUserId(userId: number): Promise<Post[]> {
-    const rows: Row[] = await db.select().from(posts).where(eq(posts.userId, userId))
+    const rows: Row[] = await db
+      .select()
+      .from(posts)
+      .where(eq(posts.userId, userId))
+      .orderBy(desc(posts.createdAt))
     return rows.map((r) => new Post(r.id, r.userId, r.message))
   }
 
   async findAll(): Promise<Post[]> {
-    const rows: Row[] = await db.select().from(posts)
+    const rows: Row[] = await db
+      .select()
+      .from(posts)
+      .orderBy(desc(posts.createdAt))
     return rows.map((r) => new Post(r.id, r.userId, r.message))
   }
 }
